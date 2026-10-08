@@ -592,6 +592,13 @@ class AuthService {
     _sessionExpired = true;
     _invalidateRefreshes();
     _clearCachedIdentityAndAuth();
+    // These gates are stored per install, not per account. Sign Out clears them with the rest of the
+    // account's preferences; expiry must too, or the next account to sign in skips AI consent and
+    // onboarding.
+    SharedPreferencesUtil()
+      ..aiConsentGiven = false
+      ..onboardingCompleted = false
+      ..permissionsCompleted = false;
     _sessionExpiredController.add(event);
     final expiration = _runSessionExpiration();
     _expireSessionInFlight = expiration;

@@ -66,6 +66,27 @@ void main() {
     expect(gateway.signOutCalls, 1);
   });
 
+  for (final reason in AuthSessionExpirationReason.values) {
+    test('$reason expiry clears AI consent and onboarding but keeps the paired device', () async {
+      SharedPreferencesUtil().uid = 'account-a';
+      SharedPreferencesUtil().aiConsentGiven = true;
+      SharedPreferencesUtil().onboardingCompleted = true;
+      SharedPreferencesUtil().permissionsCompleted = true;
+      SharedPreferencesUtil().deviceName = 'Omi';
+      SharedPreferencesUtil().deviceOnboardingCompleted = true;
+      final gateway = _FakeTokenGateway();
+      final service = _service(gateway);
+
+      await service.expireSession(AuthSessionExpiredEvent(reason: reason));
+
+      expect(SharedPreferencesUtil().aiConsentGiven, isFalse, reason: 'the next account must see AI consent');
+      expect(SharedPreferencesUtil().onboardingCompleted, isFalse, reason: 'the next account must see onboarding');
+      expect(SharedPreferencesUtil().permissionsCompleted, isFalse);
+      expect(SharedPreferencesUtil().deviceName, 'Omi');
+      expect(SharedPreferencesUtil().deviceOnboardingCompleted, isTrue);
+    });
+  }
+
   test('account switch cannot reuse or cache the previous user refresh', () async {
     final oldRefresh = Completer<RefreshedAuthToken?>();
     final gateway = _FakeTokenGateway(refreshCompleter: oldRefresh);
@@ -209,7 +230,7 @@ void main() {
     }
   });
 
-  test('expireSession is idempotent, emits once, and clears only user display caches', () async {
+  test('expireSession is idempotent, emits once, and clears only user display caches and account gates', () async {
     final pendingMemory = Memory(
       id: 'pending-1',
       uid: 'user-1',
@@ -280,7 +301,7 @@ void main() {
     expect(SharedPreferencesUtil().preferredSummarizationAppId, isEmpty);
     expect(SharedPreferencesUtil().calendarEnabled, isFalse);
     expect(raw.getString('btDevice'), 'preserve-device');
-    expect(raw.getBool('onboardingCompleted'), isTrue);
+    expect(raw.getBool('onboardingCompleted'), isFalse);
     expect(raw.getString('offlineRecordingMarker'), 'preserve-recording');
     expect(raw.containsKey('pendingMemories'), isFalse);
     expect(raw.getStringList('pendingMemories:user-1'), hasLength(1));
